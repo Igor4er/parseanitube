@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "parseanitube"
+version = "0.9.0"
+description = ""
+authors = ["Igor4er <sherednihenko.ihor@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+requests = "^2.31.0"
+asyncio = "^3.4.3"
+beautifulsoup4 = "^4.12.2"
+dataclasses-json = "^0.5.8"
+tqdm = "^4.65.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
