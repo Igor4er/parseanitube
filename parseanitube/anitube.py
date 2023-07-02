@@ -2,9 +2,12 @@ import requests
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 from bs4 import BeautifulSoup
-from tqdm import tqdm
+from tqdm.asyncio import tqdm
 import time
 import json
+import asyncio
+from datetime import datetime
+
 
 ANITUBE_URL = "https://anitube.in.ua/"
 ANITUBE_QUERY_URL_BY = "f/ne-chpati=DUB/r.real_rating=6;10/r.year="
@@ -38,8 +41,7 @@ class Anime:
     
     def __hash__(self):
         hashed = hash((
-            getattr(self, key)
-            for key in self.__annotations__
+            self.url, self.title, self.year, self.description, self.image_url, self.director, self.studio
         ))
         return hashed
 
@@ -54,6 +56,7 @@ class Anime:
 
     def update_by_page(self, page: bytes):
         soup = BeautifulSoup(page, features="lxml").find("article")
+        print(f"PAGE: {self.url}")
         story = Anime._story_by_page(soup)
         storytable = Anime._storytable_by_story(story)
         # print(f"====================================\n{storytable}\n---------------------------------")
@@ -121,42 +124,50 @@ class Anime:
 
 
 class Anitube:
-    def _get_page_or_none(url: str) -> bytes | None:
+    async def _get_page_or_none(url: str) -> bytes | None:
         resp = requests.get(url)
         if resp.ok:
             return resp.content
         else:
             return None
 
-    def _get_page_anyway(url: str) -> bytes:
+    async def _get_page_anyway(url: str) -> bytes:
         resp = requests.get(url)
         if resp.ok:
             return resp.content
         else:
             if resp.status_code == 429:
-                time.sleep(10)
-            return Anitube._get_page_anyway(url)
+                await asyncio.sleep(10)
+            return await Anitube._get_page_anyway(url)
     
-    def _max_page(query_url:str) -> int:
-        return int(BeautifulSoup(Anitube._get_page_anyway(query_url), features="lxml").find("span", class_="lcol navi_pages").find_all("a")[-1].text)
+    async def _max_page(query_url:str) -> int:
+        nav = BeautifulSoup(await Anitube._get_page_anyway(query_url), features="lxml").find("span", class_="lcol navi_pages")
+        if nav is not None:
+            return int(nav.find_all("a")[-1].text)
+        else:
+            return 1
+        
 
-    def query_year(self, year: int = 2023):
+    async def query_year(self, year: int = 2023):
         page = 1
         query_url = f"{ANITUBE_URL}{ANITUBE_QUERY_URL_BY}{year};{year}{ANITUBE_QUERY_URL_AY}"
-        max_page = Anitube._max_page(query_url)
+        max_page = await Anitube._max_page(query_url)
         animes = []
-        with tqdm(total=max_page, desc="Querying animes") as pbar:
+        with tqdm(total=max_page, desc=f"Querying {year} year") as pbar:
             while page <= max_page:
-                query_page = Anitube._get_page_anyway(query_url + f"/page/{page}")
+                query_page = await Anitube._get_page_anyway(query_url + f"/page/{page}")
                 animes += (Anime.animes_from_page(query_page))
                 page +=1
                 pbar.update(1)
-            return animes
+        print(f"Queried {len(animes)} animes!")
+        return animes
 
-    def fetch_anime(self, anime: Anime):
-        page = Anitube._get_page_anyway(anime.url)
+    async def fetch_anime(self, anime: Anime):
+        page = await Anitube._get_page_anyway(anime.url)
         if page is not None:
             anime.update_by_page(page)
+            print(f"FETCHED: {datetime.now().time()}")
+
 
 
 if __name__ == "__main__":

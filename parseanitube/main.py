@@ -1,9 +1,10 @@
 import sys
+import asyncio
 from datetime import datetime
 from controller import Controller
 
 
-def main():
+async def main():
     start_time = datetime.now()
     print(f"Startad at {start_time}")
 
@@ -11,16 +12,16 @@ def main():
         year = int(sys.argv[1])
     except IndexError:
         year = None
-    
+
     cnt = Controller()
     if year is not None:
-        pass
+        await cnt.renew_animes_from(year)
     else:
-        cnt.renew_ongoing_animes()
+        await cnt.renew_ongoing_animes()
 
     end_time = datetime.now()
-    print(f"Program finished in {(start_time - end_time).total_seconds() / 60}")
+    print(f"Program finished in {(end_time - start_time).total_seconds() / 60}min")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
